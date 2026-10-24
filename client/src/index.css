@@ -1,0 +1,122 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html, body, #root {
+    height: 100%;
+    width: 100%;
+  }
+
+  body {
+    background-color: #0F1115;
+    color: #FFFFFF;
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+  }
+
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: #2A2D35;
+    border-radius: 2px;
+  }
+  ::-webkit-scrollbar-thumb:hover { background: #1DB954; }
+}
+
+@layer components {
+  /* Glassmorphism card */
+  .glass-card {
+    @apply bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl;
+  }
+
+  /* Neon glow on active track */
+  .neon-glow {
+    box-shadow: 0 0 10px #1DB954, 0 0 30px #1DB95433;
+  }
+
+  /* Seek / Volume slider */
+  .range-slider {
+    @apply w-full appearance-none h-1 rounded-full bg-sp-border outline-none cursor-pointer;
+    background: linear-gradient(
+      to right,
+      #1DB954 var(--progress, 0%),
+      #2A2D35 var(--progress, 0%)
+    );
+  }
+  .range-slider::-webkit-slider-thumb {
+    @apply appearance-none w-3 h-3 rounded-full bg-white;
+    box-shadow: 0 0 6px #1DB954;
+    transition: transform 0.15s;
+  }
+  .range-slider:hover::-webkit-slider-thumb {
+    transform: scale(1.4);
+  }
+
+  /* Active nav link */
+  .nav-link-active {
+    @apply text-white font-semibold;
+  }
+  .nav-link-active svg {
+    @apply text-sp-green;
+  }
+
+  /* Wave bars for "now playing" indicator */
+  .wave-bar {
+    @apply inline-block w-[3px] rounded-full bg-sp-green;
+    animation: wave 1.2s linear infinite;
+  }
+  .wave-bar:nth-child(2) { animation-delay: 0.15s; height: 10px; }
+  .wave-bar:nth-child(3) { animation-delay: 0.3s;  height: 14px; }
+  .wave-bar:nth-child(4) { animation-delay: 0.45s; height: 8px;  }
+
+  /* ── Form inputs: always readable, explicit dark background ──────────── */
+  .sp-input {
+    @apply w-full bg-sp-surface border border-white/10 rounded-xl
+           px-4 py-2.5 text-sm text-white placeholder-sp-muted
+           focus:outline-none focus:border-sp-green/50 focus:bg-sp-card
+           transition-all caret-sp-green;
+    /* Override browser autofill yellow tint */
+    -webkit-text-fill-color: white;
+  }
+  .sp-input:-webkit-autofill,
+  .sp-input:-webkit-autofill:hover,
+  .sp-input:-webkit-autofill:focus {
+    -webkit-text-fill-color: white;
+    -webkit-box-shadow: 0 0 0px 1000px #1A1D23 inset;
+    transition: background-color 9999s ease-in-out 0s;
+  }
+  .sp-input:disabled {
+    @apply opacity-50 cursor-default;
+  }
+
+  /* Adaptive track grid helpers */
+  .track-grid {
+    @apply grid gap-4;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  @screen sm  { .track-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  @screen md  { .track-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+  @screen lg  { .track-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+  @screen xl  { .track-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+}
+
+/* EQ fader track */
+input[type='range'].eq-fader {
+  writing-mode: vertical-lr;
+  direction: rtl;
+  width: 28px;
+  height: 90px;
+  cursor: pointer;
+  accent-color: #1DB954;
+}
