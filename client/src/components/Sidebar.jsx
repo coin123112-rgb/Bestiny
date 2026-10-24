@@ -6,6 +6,7 @@ import {
   Loader2, AlertCircle, Download
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useI18n } from '../context/I18nContext';
 import { fetchPlaylists, createPlaylist } from '../services/api';
 
 // ── PWA Install Component ─────────────────────────────────────────────────
@@ -192,6 +193,7 @@ function CreatePlaylistModal({ onClose, onCreate }) {
 // ── Sidebar ───────────────────────────────────────────────────────────────
 export default function Sidebar({ onClose }) {
   const { user, logout } = useAuth();
+  const { t } = useI18n();
   const navigate = useNavigate();
   const [playlists,   setPlaylists]   = useState([]);
   const [collapsed,   setCollapsed]   = useState(false);
@@ -248,8 +250,9 @@ export default function Sidebar({ onClose }) {
               onClick={handleNavClick}
               className="font-extrabold text-lg tracking-tight leading-none
                          hover:opacity-80 transition-opacity text-white"
+              translate="no"
             >
-              SONIC<span className="text-sp-green">PULSE</span>
+              <span className="text-sp-green">B</span>estiny
             </Link>
           )}
 
@@ -280,13 +283,13 @@ export default function Sidebar({ onClose }) {
         {/* ── Primary Nav ─────────────────────────────────────────────── */}
         <nav className="px-3 space-y-1" onClick={handleNavClick}>
           <NavLink to="/"    end className={navCls}>
-            <Home size={20} /> {!collapsed && 'Home'}
+            <Home size={20} /> {!collapsed && t('home')}
           </NavLink>
           <NavLink to="/search"   className={navCls}>
-            <Search size={20} /> {!collapsed && 'Search'}
+            <Search size={20} /> {!collapsed && t('search')}
           </NavLink>
           <NavLink to="/library"   className={navCls}>
-            <Library size={20} /> {!collapsed && 'Your Library'}
+            <Library size={20} /> {!collapsed && t('library')}
           </NavLink>
         </nav>
 
@@ -302,7 +305,7 @@ export default function Sidebar({ onClose }) {
 
           <NavLink to="/library?tab=liked" className={navCls} onClick={handleNavClick}>
             <Heart size={18} className="text-sp-green shrink-0" />
-            {!collapsed && 'Liked Songs'}
+            {!collapsed && t('likedSongs')}
           </NavLink>
 
           {playlists.map(pl => (
@@ -328,15 +331,15 @@ export default function Sidebar({ onClose }) {
                        text-sp-muted hover:text-white hover:bg-white/5 transition-all"
           >
             <PlusSquare size={18} className="shrink-0" />
-            {!collapsed && 'Create Playlist'}
+            {!collapsed && t('createPlaylist')}
           </button>
           <NavLink to="/upload" className={navCls} onClick={handleNavClick}>
             <Music2 size={18} className="shrink-0" />
-            {!collapsed && 'Upload Track'}
+            {!collapsed && t('upload')}
           </NavLink>
           <NavLink to="/settings" className={navCls} onClick={handleNavClick}>
             <Settings size={18} className="shrink-0" />
-            {!collapsed && 'Settings'}
+            {!collapsed && t('settings')}
           </NavLink>
         </div>
 

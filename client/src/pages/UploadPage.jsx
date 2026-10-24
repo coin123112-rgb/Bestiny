@@ -2,10 +2,36 @@ import React, { useState, useRef } from 'react';
 import { Upload, Music2, Image, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import Header from '../components/Header';
 import { uploadTrack } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 const GENRES = ['Pop','Rock','Hip-Hop','Electronic','R&B','Jazz','Classical','Lo-Fi','Metal','Other'];
 
+// Error boundary to prevent blank screen on import errors
+class UploadErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { hasError: false, error: null }; }
+  static getDerivedStateFromError(error) { return { hasError: true, error }; }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full py-20 text-sp-muted gap-4">
+          <AlertCircle size={40} className="text-red-400 opacity-60" />
+          <p className="text-lg font-semibold text-white">Something went wrong</p>
+          <p className="text-sm">{this.state.error?.message}</p>
+          <button
+            onClick={() => this.setState({ hasError: false, error: null })}
+            className="px-4 py-2 bg-sp-green text-black rounded-xl font-bold text-sm"
+          >
+            Try again
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function UploadPage() {
+  const { user } = useAuth();
   const audioInputRef = useRef(null);
   const coverInputRef = useRef(null);
 
@@ -222,5 +248,14 @@ export default function UploadPage() {
         .input-field option { background: #1A1D23; color: white; }
       `}</style>
     </div>
+  );
+}
+
+// Named export wrapped in ErrorBoundary — prevents blank screen
+export function UploadPageSafe(props) {
+  return (
+    <UploadErrorBoundary>
+      <UploadPage {...props} />
+    </UploadErrorBoundary>
   );
 }

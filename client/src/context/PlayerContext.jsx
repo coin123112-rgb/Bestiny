@@ -3,10 +3,16 @@ import React, {
   useCallback, useEffect
 } from 'react';
 import { Howl } from 'howler';
+import { useAuth } from './AuthContext';
+
+// Lazy import to avoid circular deps — App exports this context
+let _openGuestModal = null;
+export function _setGuestModalOpener(fn) { _openGuestModal = fn; }
 
 const PlayerContext = createContext(null);
 
 export function PlayerProvider({ children }) {
+  const { user } = useAuth();
   const [queue,        setQueue]        = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying,    setIsPlaying]    = useState(false);
@@ -119,6 +125,15 @@ export function PlayerProvider({ children }) {
 
   // ─── Controls ────────────────────────────────────────────────────────────
   const playTrack = useCallback((track, list = null) => {
+    // Guests: show modal first, then play on "Later"
+    if (!user && _openGuestModal) {
+      _openGuestModal(() => _doPlayTrack(track, list));
+      return;
+    }
+    _doPlayTrack(track, list);
+  }, [queue, loadTrack, user]); // eslint-disable-line
+
+  const _doPlayTrack = useCallback((track, list = null) => {
     if (list) {
       const idx = list.findIndex(t => t._id === track._id);
       setQueue(list);

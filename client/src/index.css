@@ -14,23 +14,43 @@
     width: 100%;
   }
 
+  /* ── Dark mode (default) ──────────────────────────────────────────────── */
+  :root {
+    --bg:      #0F1115;
+    --surface: #1A1D23;
+    --card:    #1E2228;
+    --border:  #2A2D35;
+    --text:    #FFFFFF;
+    --muted:   #9CA3AF;
+  }
+
+  /* ── Light mode ─────────────────────────────────────────────────────── */
+  html.light {
+    --bg:      #F4F4F8;
+    --surface: #FFFFFF;
+    --card:    #FFFFFF;
+    --border:  #E0E0E8;
+    --text:    #111114;
+    --muted:   #6B7280;
+  }
+
   body {
-    background-color: #0F1115;
-    color: #FFFFFF;
+    background-color: var(--bg);
+    color: var(--text);
     font-family: 'Inter', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     overflow: hidden;
+    transition: background-color 0.3s, color 0.3s;
   }
 
-  ::-webkit-scrollbar {
-    width: 4px;
-    height: 4px;
+  /* Protect brand names / track metadata from browser translation */
+  [translate="no"], .notranslate {
+    -webkit-translate: none;
   }
+
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
   ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb {
-    background: #2A2D35;
-    border-radius: 2px;
-  }
+  ::-webkit-scrollbar-thumb { background: #2A2D35; border-radius: 2px; }
   ::-webkit-scrollbar-thumb:hover { background: #1DB954; }
 }
 

@@ -1,11 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Bell, Palette, Globe, ShieldCheck,
-  Volume2, Wifi, Trash2, ChevronRight,
+  Volume2, Wifi, Trash2, ChevronRight, Moon, Sun,
 } from 'lucide-react';
 import Header from '../components/Header';
+import { useTheme } from '../context/ThemeContext';
+import { useI18n } from '../context/I18nContext';
 
-// Reusable toggle switch
+// ── Helpers ───────────────────────────────────────────────────────────────
+function loadPrefs() {
+  try { return JSON.parse(localStorage.getItem('bs_prefs') ?? 'null') ?? {}; }
+  catch { return {}; }
+}
+
 function Toggle({ checked, onChange, id }) {
   return (
     <button
@@ -25,7 +32,6 @@ function Toggle({ checked, onChange, id }) {
   );
 }
 
-// Reusable settings row
 function SettingRow({ icon: Icon, label, description, control }) {
   return (
     <div className="flex items-center justify-between gap-4 py-3.5
@@ -46,7 +52,6 @@ function SettingRow({ icon: Icon, label, description, control }) {
   );
 }
 
-// Settings section card
 function Section({ title, children }) {
   return (
     <div className="glass-card p-5">
@@ -58,25 +63,41 @@ function Section({ title, children }) {
   );
 }
 
+// ── Page ──────────────────────────────────────────────────────────────────
 export default function SettingsPage() {
-  const [prefs, setPrefs] = useState({
+  const { theme, toggleTheme } = useTheme();
+  const { locale, setLocale, t } = useI18n();
+
+  const [prefs, setPrefs] = useState(() => ({
     notifications:  true,
     emailUpdates:   false,
     highQuality:    true,
-    offlineMode:    false,
     autoplay:       true,
     privateSession: false,
-    darkMode:       true,   // always dark — cosmetic only
-  });
+    ...loadPrefs(),
+  }));
+
+  const [quality, setQualityState] = useState(
+    () => localStorage.getItem('bs_quality') ?? 'high'
+  );
+
+  // Persist prefs to localStorage on change
+  useEffect(() => {
+    localStorage.setItem('bs_prefs', JSON.stringify(prefs));
+  }, [prefs]);
 
   const toggle = (key) => setPrefs(p => ({ ...p, [key]: !p[key] }));
 
-  const [quality, setQuality] = useState('high');
-  const [language, setLanguage] = useState('en');
+  const setQuality = (val) => {
+    setQualityState(val);
+    localStorage.setItem('bs_quality', val);
+  };
+
+  const isDark = theme === 'dark';
 
   return (
     <div className="min-h-full">
-      <Header title="Settings" />
+      <Header title={t('settings')} />
 
       <div className="max-w-2xl mx-auto px-4 py-8 space-y-4">
 
@@ -114,7 +135,7 @@ export default function SettingsPage() {
         </Section>
 
         {/* ── Notifications ─────────────────────────────────────────────── */}
-        <Section title="Notifications">
+        <Section title={t('notifications')}>
           <SettingRow
             icon={Bell}
             label="Push notifications"
@@ -140,11 +161,11 @@ export default function SettingsPage() {
           <SettingRow
             icon={Globe}
             label="Language"
-            description="Interface language"
+            description="Interface language — saved automatically"
             control={
               <select
-                value={language}
-                onChange={e => setLanguage(e.target.value)}
+                value={locale}
+                onChange={e => setLocale(e.target.value)}
                 className="bg-sp-surface border border-white/10 rounded-lg px-3 py-1.5
                            text-sm text-white focus:outline-none focus:border-sp-green/50"
               >
@@ -160,10 +181,15 @@ export default function SettingsPage() {
         {/* ── Appearance ────────────────────────────────────────────────── */}
         <Section title="Appearance">
           <SettingRow
-            icon={Palette}
-            label="Dark mode"
-            description="Bestiny is always dark and beautiful"
-            control={<Toggle checked={prefs.darkMode} onChange={() => toggle('darkMode')} />}
+            icon={isDark ? Moon : Sun}
+            label={isDark ? 'Dark mode' : 'Light mode'}
+            description="Changes the look of the entire app"
+            control={
+              <Toggle
+                checked={isDark}
+                onChange={toggleTheme}
+              />
+            }
           />
         </Section>
 
@@ -185,8 +211,8 @@ export default function SettingsPage() {
           />
         </Section>
 
-        <p className="text-center text-xs text-sp-muted pb-4">
-          Bestiny v1.0.0 — Settings are saved automatically
+        <p className="text-center text-xs text-sp-muted pb-4" translate="no">
+          Bestiny v1.0.0
         </p>
       </div>
     </div>
