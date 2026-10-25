@@ -85,16 +85,17 @@ async function uploadTrack(req, res, next) {
       album:         album?.trim() || '',
       genre:         genre || 'Other',
       lyricsRaw:     lyrics || '',
-      audioPublicId: audioFile.public_id,
+      audioPublicId: audioFile.public_id || audioFile.filename,
       audioUrl:      audioFile.path,        // Cloudinary URL
-      coverPublicId: coverFile?.public_id ?? null,
+      coverPublicId: coverFile?.public_id || coverFile?.filename || null,
       coverUrl:      coverFile?.path ?? null,
       uploadedBy:    req.user._id,
     });
 
     res.status(201).json({ track });
   } catch (err) {
-    next(err);
+    console.error('UPLOAD ERROR DETAILS:', err);
+    return res.status(400).json({ message: err.message || 'Upload failed' });
   }
 }
 

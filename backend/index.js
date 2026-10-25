@@ -39,8 +39,8 @@ app.use(rateLimit({
 }));
 
 // ── Parsing ────────────────────────────────────────────────────────────────
-app.use(express.json({ limit: '10kb' }));
-app.use(express.urlencoded({ extended: true, limit: '10kb' }));
+app.use(express.json({ limit: '100mb' }));
+app.use(express.urlencoded({ extended: true, limit: '100mb' }));
 app.use(morgan('dev'));
 
 // ── Routes ─────────────────────────────────────────────────────────────────

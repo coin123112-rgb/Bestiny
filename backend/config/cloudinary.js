@@ -35,12 +35,12 @@ const coverStorage = new CloudinaryStorage({
 
 const audioUpload = multer({
   storage: audioStorage,
-  limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB
+  limits: { fileSize: 100 * 1024 * 1024 }, // 100 MB
 });
 
 const coverUpload = multer({
   storage: coverStorage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+  limits: { fileSize: 20 * 1024 * 1024 }, // 20 MB
 });
 
 /**

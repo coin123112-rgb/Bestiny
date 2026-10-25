@@ -38,14 +38,35 @@ const mixedStorage = multer({
       };
     },
   }),
-  limits: { fileSize: 50 * 1024 * 1024 },
+  limits: { fileSize: 100 * 1024 * 1024, files: 2 },
 });
 
-router.get('/',           protect, listTracks);
-router.get('/:id',        protect, getTrack);
-router.post('/',          protect, mixedStorage.fields(uploadFields), uploadTrack);
-router.delete('/:id',     protect, deleteTrack);
-router.post('/:id/like',  protect, likeTrack);
+router.get('/', protect, listTracks);
+router.get('/:id', protect, getTrack);
+router.post('/', protect, (req, res, next) => {
+  mixedStorage.fields(uploadFields)(req, res, (err) => {
+    if (err) {
+      // Выводим точную ошибку мультера/Cloudinary в терминал бэкенда
+      console.error('MULTER / CLOUDINARY ERROR:', err);
+
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(413).json({ message: 'File is too large. Maximum size is 100 MB.' });
+      }
+      if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+        return res.status(400).json({ message: 'Unexpected file field. Use audio and cover only.' });
+      }
+      return res.status(400).json({ message: err.message || 'Upload failed' });
+    }
+
+    try {
+      return uploadTrack(req, res, next);
+    } catch (error) {
+      return next(error);
+    }
+  });
+});
+router.delete('/:id', protect, deleteTrack);
+router.post('/:id/like', protect, likeTrack);
 router.get('/:id/lyrics', protect, getLyrics);
 
 module.exports = router;

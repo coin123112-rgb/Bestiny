@@ -1,8 +1,9 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 
 // ── Translations dictionary ───────────────────────────────────────────────
 const TRANSLATIONS = {
   en: {
+    brand: 'Bestiny',
     home: 'Home', search: 'Search', library: 'Your Library',
     settings: 'Settings', profile: 'Profile', upload: 'Upload Track',
     likedSongs: 'Liked Songs', createPlaylist: 'Create Playlist',
@@ -27,6 +28,7 @@ const TRANSLATIONS = {
     installing: 'Install App',
   },
   ru: {
+    brand: 'Bestiny',
     home: 'Главная', search: 'Поиск', library: 'Моя библиотека',
     settings: 'Настройки', profile: 'Профиль', upload: 'Загрузить трек',
     likedSongs: 'Любимые песни', createPlaylist: 'Создать плейлист',
@@ -51,6 +53,7 @@ const TRANSLATIONS = {
     installing: 'Установить приложение',
   },
   de: {
+    brand: 'Bestiny',
     home: 'Startseite', search: 'Suche', library: 'Bibliothek',
     settings: 'Einstellungen', profile: 'Profil', upload: 'Track hochladen',
     likedSongs: 'Gefällt mir', createPlaylist: 'Playlist erstellen',
@@ -74,38 +77,16 @@ const TRANSLATIONS = {
     },
     installing: 'App installieren',
   },
-  es: {
-    home: 'Inicio', search: 'Buscar', library: 'Tu biblioteca',
-    settings: 'Ajustes', profile: 'Perfil', upload: 'Subir pista',
-    likedSongs: 'Canciones que te gustan', createPlaylist: 'Crear lista',
-    signIn: 'Iniciar sesión', register: 'Registrarse', signOut: 'Cerrar sesión',
-    goodMorning: 'Buenos días', goodAfternoon: 'Buenas tardes',
-    goodEvening: 'Buenas noches',
-    trending: 'Tendencias', fresh: 'Novedades', discover: 'Descubrir',
-    noTracks: 'Sin resultados', selectTrack: 'Selecciona una pista',
-    notifications: 'Notificaciones', markAllRead: 'Marcar como leídas',
-    noNotifications: 'Sin notificaciones nuevas',
-    playlistName: 'Nombre de lista', description: 'Descripción', cancel: 'Cancelar',
-    create: 'Crear', creating: 'Creando…',
-    loginTitle: 'Inicia sesión para seguir escuchando',
-    registerTitle: 'Crea tu cuenta gratis',
-    email: 'Correo', password: 'Contraseña', name: 'Nombre completo',
-    confirmPassword: 'Confirmar contraseña',
-    guestModal: {
-      title: 'Inicia sesión para seguir escuchando',
-      body: 'Crea una cuenta gratis o inicia sesión para dar me gusta y crear listas.',
-      signIn: 'Iniciar sesión', register: 'Crear cuenta', later: 'Continuar como invitado',
-    },
-    installing: 'Instalar app',
-  },
 };
 
 const I18nContext = createContext(null);
 
 export function I18nProvider({ children }) {
-  const [locale, setLocaleState] = useState(
-    () => localStorage.getItem('bs_locale') ?? 'en'
-  );
+  const [locale, setLocaleState] = useState(() => localStorage.getItem('bs_locale') ?? 'en');
+
+  useEffect(() => {
+    document.documentElement.lang = locale;
+  }, [locale]);
 
   const setLocale = useCallback((lang) => {
     if (TRANSLATIONS[lang]) {

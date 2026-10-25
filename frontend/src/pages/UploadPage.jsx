@@ -73,11 +73,11 @@ export default function UploadPage() {
     Object.entries(form).forEach(([k, v]) => data.append(k, v));
 
     setStatus('uploading');
+    setProgress(0);
     setErrorMsg('');
     try {
-      await uploadTrack(data);
+      await uploadTrack(data, (pct) => setProgress(pct));
       setStatus('success');
-      // Reset
       setAudioFile(null); setCoverFile(null); setCoverPreview(null);
       setForm({ title:'', artist:'', album:'', genre:'Pop', lyrics:'' });
       setProgress(0);
@@ -192,13 +192,22 @@ export default function UploadPage() {
             />
           </div>
 
-          {/* Progress bar */}
+          {/* Progress bar — real percentage from onUploadProgress */}
           {status === 'uploading' && (
-            <div className="w-full bg-white/10 rounded-full h-1.5">
-              <div
-                className="bg-sp-green h-1.5 rounded-full transition-all duration-300"
-                style={{ width: `${progress}%` }}
-              />
+            <div className="space-y-2">
+              <div className="flex justify-between text-xs text-sp-muted">
+                <span className="flex items-center gap-1.5">
+                  <Loader2 size={12} className="animate-spin text-sp-green" />
+                  Uploading… {progress}%
+                </span>
+                <span>{progress === 100 ? 'Processing…' : 'Please wait'}</span>
+              </div>
+              <div className="w-full bg-white/10 rounded-full h-2 overflow-hidden">
+                <div
+                  className="bg-sp-green h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
             </div>
           )}
 
