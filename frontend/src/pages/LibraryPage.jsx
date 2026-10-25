@@ -98,6 +98,11 @@ export default function LibraryPage() {
         <TrackGrid
           tracks={tracks}
           loading={loading}
+          editable={activeTab === 'Uploaded'}
+          onTrackDeleted={trackId => setTracks(current => current.filter(track => track._id !== trackId))}
+          onTrackUpdated={updatedTrack => setTracks(current =>
+            current.map(track => track._id === updatedTrack._id ? updatedTrack : track)
+          )}
           title={
             activeTab === 'Liked'    ? '❤️ Liked Songs' :
             activeTab === 'Uploaded' ? '📤 Your Uploads' : '🎵 All Tracks'

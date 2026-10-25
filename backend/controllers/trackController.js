@@ -2,8 +2,58 @@
 
 const Track    = require('../models/Track');
 const User     = require('../models/User');
-const { cloudinary, signedUrl } = require('../config/cloudinary');
+const mongoose = require('mongoose');
+const { cloudinary } = require('../config/cloudinary');
 const { parseLrc } = require('../utils/parseLrc');
+
+function canManageTrack(track, user) {
+  return track.uploadedBy.toString() === user._id.toString() || user.role === 'admin';
+}
+
+function validateTrackId(id) {
+  return mongoose.Types.ObjectId.isValid(id);
+}
+
+async function destroyCloudinaryAsset(publicId, resourceType) {
+  if (!publicId) return;
+  const result = await cloudinary.uploader.destroy(publicId, { resource_type: resourceType });
+  if (result.result !== 'ok' && result.result !== 'not found') {
+    throw new Error(`Cloudinary deletion failed for ${resourceType} asset`);
+  }
+}
+
+async function cleanupNewUploads(files = {}) {
+  const assets = [
+    [files.audio?.[0], 'video'],
+    [files.cover?.[0], 'image'],
+  ].filter(([file]) => file);
+
+  const results = await Promise.allSettled(
+    assets.map(([file, type]) =>
+      destroyCloudinaryAsset(file.public_id || file.filename, type)
+    )
+  );
+  results.filter(result => result.status === 'rejected')
+    .forEach(result => console.error('Failed to clean up uploaded Cloudinary asset:', result.reason));
+}
+
+function authorizeTrackOwner(req, res, next) {
+  if (!validateTrackId(req.params.id)) {
+    return res.status(400).json({ message: 'Invalid track id' });
+  }
+
+  Track.findById(req.params.id)
+    .then(track => {
+      if (!track) return res.status(404).json({ message: 'Track not found' });
+      if (!canManageTrack(track, req.user)) {
+        return res.status(403).json({ message: 'Forbidden' });
+      }
+
+      req.track = track;
+      next();
+    })
+    .catch(next);
+}
 
 // GET /api/tracks
 async function listTracks(req, res, next) {
@@ -102,10 +152,41 @@ async function uploadTrack(req, res, next) {
 // DELETE /api/tracks/:id
 async function deleteTrack(req, res, next) {
   try {
+    if (!validateTrackId(req.params.id)) {
+      return res.status(400).json({ message: 'Invalid track id' });
+    }
+
     const track = await Track.findById(req.params.id);
     if (!track) return res.status(404).json({ message: 'Track not found' });
 
-    // Only owner or admin
+    if (!canManageTrack(track, req.user)) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+
+    const removals = await Promise.allSettled([
+      destroyCloudinaryAsset(track.audioPublicId, 'video'),
+      destroyCloudinaryAsset(track.coverPublicId, 'image'),
+    ]);
+    const failedRemoval = removals.find(result => result.status === 'rejected');
+    if (failedRemoval) {
+      console.error('Failed to delete track media from Cloudinary:', failedRemoval.reason);
+      return res.status(502).json({ message: 'Could not remove track media from storage' });
+    }
+
+    await track.deleteOne();
+    res.json({ message: 'Track deleted' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// PUT /api/tracks/:id (Редактирование трека)
+async function updateTrack(req, res, next) {
+  try {
+    const track = await Track.findById(req.params.id);
+    if (!track) return res.status(404).json({ message: 'Track not found' });
+
+    // Проверка прав (только владелец или админ)
     if (
       track.uploadedBy.toString() !== req.user._id.toString() &&
       req.user.role !== 'admin'
@@ -113,15 +194,98 @@ async function deleteTrack(req, res, next) {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
-    // Remove from Cloudinary
-    await cloudinary.uploader.destroy(track.audioPublicId, { resource_type: 'video' });
-    if (track.coverPublicId) {
-      await cloudinary.uploader.destroy(track.coverPublicId);
+    const { title, artist, album, genre, lyrics } = req.body;
+
+    if (title) track.title = title.trim();
+    if (artist) track.artist = artist.trim();
+    if (album !== undefined) track.album = album.trim();
+    if (genre) track.genre = genre;
+    if (lyrics !== undefined) track.lyricsRaw = lyrics;
+
+    // Если загрузили новую обложку
+    if (req.files?.cover?.[0]) {
+      if (track.coverPublicId) {
+        await cloudinary.uploader.destroy(track.coverPublicId);
+      }
+      const coverFile = req.files.cover[0];
+      track.coverPublicId = coverFile.public_id || coverFile.filename;
+      track.coverUrl = coverFile.path;
     }
 
-    await track.deleteOne();
-    res.json({ message: 'Track deleted' });
+    await track.save();
+    res.json({ track });
   } catch (err) {
+    console.error('UPDATE ERROR DETAILS:', err);
+    return res.status(400).json({ message: err.message || 'Update failed' });
+  }
+}
+
+// PUT /api/tracks/:id
+async function updateTrack(req, res, next) {
+  try {
+    const track = req.track;
+    const { title, artist, album, genre, lyricsRaw, lyrics } = req.body;
+    const fields = { title, artist, album, genre, lyricsRaw: lyricsRaw ?? lyrics };
+    if (Object.values(fields).some(value => value !== undefined && typeof value !== 'string')) {
+      await cleanupNewUploads(req.files);
+      return res.status(400).json({ message: 'Track metadata must be text' });
+    }
+
+    const updates = {};
+    Object.entries(fields).forEach(([key, value]) => {
+      if (value !== undefined) updates[key] = value.trim();
+    });
+
+    if (updates.title !== undefined && !updates.title) {
+      await cleanupNewUploads(req.files);
+      return res.status(400).json({ message: 'Title cannot be empty' });
+    }
+    if (updates.artist !== undefined && !updates.artist) {
+      await cleanupNewUploads(req.files);
+      return res.status(400).json({ message: 'Artist cannot be empty' });
+    }
+    if ((updates.title?.length ?? 0) > 200 || (updates.artist?.length ?? 0) > 200 ||
+        (updates.album?.length ?? 0) > 200 || (updates.genre?.length ?? 0) > 100 ||
+        (updates.lyricsRaw?.length ?? 0) > 100000) {
+      await cleanupNewUploads(req.files);
+      return res.status(400).json({ message: 'Track metadata exceeds the allowed length' });
+    }
+
+    const previousAudioId = track.audioPublicId;
+    const previousCoverId = track.coverPublicId;
+    const audioFile = req.files?.audio?.[0];
+    const coverFile = req.files?.cover?.[0];
+
+    if (audioFile) {
+      track.audioPublicId = audioFile.public_id || audioFile.filename;
+      track.audioUrl = audioFile.path;
+    }
+    if (coverFile) {
+      track.coverPublicId = coverFile.public_id || coverFile.filename;
+      track.coverUrl = coverFile.path;
+    }
+    Object.assign(track, updates);
+
+    await track.save();
+
+    const oldAssets = [];
+    if (audioFile && previousAudioId) oldAssets.push([previousAudioId, 'video']);
+    if (coverFile && previousCoverId) oldAssets.push([previousCoverId, 'image']);
+    const cleanupResults = await Promise.allSettled(
+      oldAssets.map(([publicId, type]) => destroyCloudinaryAsset(publicId, type))
+    );
+    const cleanupWarning = cleanupResults.some(result => result.status === 'rejected');
+    if (cleanupWarning) {
+      console.error('Track was updated, but replaced Cloudinary media could not be fully removed:',
+        cleanupResults.filter(result => result.status === 'rejected').map(result => result.reason));
+    }
+
+    res.json({
+      track: track.toObject(),
+      ...(cleanupWarning && { cleanupWarning: 'Some replaced media could not be removed from storage.' }),
+    });
+  } catch (err) {
+    await cleanupNewUploads(req.files);
     next(err);
   }
 }
@@ -164,4 +328,7 @@ async function getLyrics(req, res, next) {
   }
 }
 
-module.exports = { listTracks, getTrack, uploadTrack, deleteTrack, likeTrack, getLyrics };
+module.exports = {
+  listTracks, getTrack, uploadTrack, updateTrack, deleteTrack, likeTrack, getLyrics,
+  authorizeTrackOwner,
+};

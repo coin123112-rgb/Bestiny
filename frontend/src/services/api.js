@@ -43,6 +43,8 @@ export const fetchTracks  = (params) => api.get('/tracks', { params });
 export const fetchTrack   = (id)     => api.get(`/tracks/${id}`);
 export const likeTrack    = (id)     => api.post(`/tracks/${id}/like`);
 export const deleteTrack  = (id)     => api.delete(`/tracks/${id}`);
+export const updateTrack  = (id, formData) =>
+  api.put(`/tracks/${id}`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
 
 /**
  * Upload track — separate instance with:

@@ -1,17 +1,35 @@
-import React from 'react';
-import { Play, Heart, MoreHorizontal } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Play, Heart, MoreHorizontal, Edit2, Trash2, X, Save, Loader2 } from 'lucide-react';
 import { usePlayer } from '../context/PlayerContext';
-import { likeTrack } from '../services/api';
+import { deleteTrack, likeTrack, updateTrack } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import { formatTime } from '../utils/formatTime';
 
 // ── Single track card (grid view) ─────────────────────────────────────────
-function TrackCard({ track, list, index }) {
+function TrackCard({ track, list, index, canEdit, onEdit, onDeleted }) {
   const { playTrack, currentTrack, isPlaying } = usePlayer();
   const isActive = currentTrack?._id === track._id;
+  const [deleting, setDeleting] = useState(false);
+  const [actionError, setActionError] = useState('');
 
   const handlePlay = (e) => {
     e.stopPropagation();
     playTrack(track, list);
+  };
+
+  const handleDelete = async (e) => {
+    e.stopPropagation();
+    if (!window.confirm(`Delete "${track.title}"? This cannot be undone.`)) return;
+
+    setDeleting(true);
+    setActionError('');
+    try {
+      await deleteTrack(track._id);
+      onDeleted(track._id);
+    } catch (err) {
+      setActionError(err.message || 'Could not delete track.');
+      setDeleting(false);
+    }
   };
 
   const handleLike = async (e) => {
@@ -84,20 +102,128 @@ function TrackCard({ track, list, index }) {
           <span className="text-[11px] text-sp-muted tabular-nums">
             {formatTime(track.duration ?? 0)}
           </span>
+          {canEdit && (
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={e => { e.stopPropagation(); onEdit(track); }}
+                className="p-1 text-sp-muted hover:text-white transition-colors"
+                aria-label={`Edit ${track.title}`}
+                title="Edit track"
+              >
+                <Edit2 size={14} />
+              </button>
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={deleting}
+                className="p-1 text-sp-muted hover:text-red-400 disabled:opacity-50 transition-colors"
+                aria-label={`Delete ${track.title}`}
+                title="Delete track"
+              >
+                {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+              </button>
+            </div>
+          )}
           <button
+            type="button"
             onClick={handleLike}
+            aria-pressed={Boolean(track.liked)}
+            aria-label={track.liked ? 'Unlike track' : 'Like track'}
             className={`transition-colors ${track.liked ? 'text-sp-green' : 'text-sp-muted hover:text-white'}`}
           >
             <Heart size={14} fill={track.liked ? 'currentColor' : 'none'} />
           </button>
         </div>
       </div>
+      {actionError && <p role="alert" className="mt-2 text-xs text-red-400">{actionError}</p>}
     </div>
   );
 }
 
 // ── Grid container ─────────────────────────────────────────────────────────
-export default function TrackGrid({ tracks = [], title, subtitle, loading }) {
+function EditTrackModal({ track, onClose, onSaved }) {
+  const [form, setForm] = useState({
+    title: track.title || '',
+    artist: track.artist || '',
+    album: track.album || '',
+    genre: track.genre || 'Other',
+    lyricsRaw: track.lyricsRaw || '',
+  });
+  const [cover, setCover] = useState(null);
+  const [audio, setAudio] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setSaving(true);
+    setError('');
+
+    const data = new FormData();
+    Object.entries(form).forEach(([key, value]) => data.append(key, value));
+    if (cover) data.append('cover', cover);
+    if (audio) data.append('audio', audio);
+
+    try {
+      const response = await updateTrack(track._id, data);
+      onSaved(response.data.track, response.data.cleanupWarning);
+    } catch (err) {
+      setError(err.message || 'Could not save track.');
+      setSaving(false);
+    }
+  };
+
+  const inputClass = 'w-full rounded-xl border border-white/10 bg-sp-surface px-3 py-2.5 text-sm text-white focus:outline-none focus:border-sp-green/50';
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" role="presentation" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <section role="dialog" aria-modal="true" aria-labelledby="edit-track-title" className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border border-white/10 bg-[#1a1d23] p-5 shadow-2xl">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 id="edit-track-title" className="text-lg font-bold">Edit track</h2>
+          <button type="button" onClick={onClose} className="text-sp-muted hover:text-white" aria-label="Close">
+            <X size={20} />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <input className={inputClass} aria-label="Title" maxLength={200} required value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="Title" />
+          <input className={inputClass} aria-label="Artist" maxLength={200} required value={form.artist} onChange={e => setForm({ ...form, artist: e.target.value })} placeholder="Artist" />
+          <input className={inputClass} aria-label="Album" maxLength={200} value={form.album} onChange={e => setForm({ ...form, album: e.target.value })} placeholder="Album" />
+          <input className={inputClass} aria-label="Genre" maxLength={100} value={form.genre} onChange={e => setForm({ ...form, genre: e.target.value })} placeholder="Genre" />
+          <textarea className={`${inputClass} min-h-28 resize-y`} aria-label="Lyrics" maxLength={100000} value={form.lyricsRaw} onChange={e => setForm({ ...form, lyricsRaw: e.target.value })} placeholder="Lyrics (optional)" />
+          <label className="block text-sm text-sp-muted">
+            Replace cover
+            <input className="mt-1 block w-full text-xs" type="file" accept="image/jpeg,image/png,image/webp" onChange={e => setCover(e.target.files?.[0] ?? null)} />
+          </label>
+          <label className="block text-sm text-sp-muted">
+            Replace audio (optional)
+            <input className="mt-1 block w-full text-xs" type="file" accept="audio/*" onChange={e => setAudio(e.target.files?.[0] ?? null)} />
+          </label>
+          {error && <p role="alert" className="text-sm text-red-400">{error}</p>}
+          <div className="flex justify-end gap-2 pt-2">
+            <button type="button" onClick={onClose} disabled={saving} className="rounded-xl px-4 py-2 text-sm text-sp-muted hover:text-white disabled:opacity-50">Cancel</button>
+            <button type="submit" disabled={saving} className="flex items-center gap-2 rounded-xl bg-sp-green px-4 py-2 text-sm font-semibold text-black disabled:opacity-50">
+              {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+              Save
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+  );
+}
+
+export default function TrackGrid({ tracks = [], title, subtitle, loading, editable = false, onTrackDeleted, onTrackUpdated }) {
+  const { user } = useAuth();
+  const [editingTrack, setEditingTrack] = useState(null);
+  const [saveNotice, setSaveNotice] = useState('');
+
+  useEffect(() => {
+    if (!saveNotice) return undefined;
+    const timeout = setTimeout(() => setSaveNotice(''), 4000);
+    return () => clearTimeout(timeout);
+  }, [saveNotice]);
+
   if (loading) {
     return (
       <div className="p-6">
@@ -136,10 +262,34 @@ export default function TrackGrid({ tracks = [], title, subtitle, loading }) {
         </div>
       )}
       <div className="track-grid">
-        {tracks.map((track, i) => (
-          <TrackCard key={track._id} track={track} list={tracks} index={i} />
-        ))}
+        {tracks.map((track, i) => {
+          const ownerId = track.uploadedBy?._id ?? track.uploadedBy;
+          const canEdit = editable && user?._id && String(ownerId) === String(user._id);
+          return (
+            <TrackCard
+              key={track._id}
+              track={track}
+              list={tracks}
+              index={i}
+              canEdit={canEdit}
+              onEdit={setEditingTrack}
+              onDeleted={onTrackDeleted}
+            />
+          );
+        })}
       </div>
+      {saveNotice && <p role="status" className="mt-3 text-sm text-amber-300">{saveNotice}</p>}
+      {editingTrack && (
+        <EditTrackModal
+          track={editingTrack}
+          onClose={() => setEditingTrack(null)}
+          onSaved={(updatedTrack, warning) => {
+            onTrackUpdated(updatedTrack);
+            setEditingTrack(null);
+            setSaveNotice(warning || 'Track updated.');
+          }}
+        />
+      )}
     </section>
   );
 }
